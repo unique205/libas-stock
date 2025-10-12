@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>LIBAS Quotation - Scanner</title>
 
-  <!-- libs -->
+  <!-- libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+  <link href="manifest.json" rel="manifest">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
   <style>
@@ -28,6 +29,8 @@
       background: linear-gradient(135deg,#07327a 0%, #1a4fb0 40%, #08284d 100%);
       color:#111;
       padding:20px;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
     }
     .wrap{max-width:1180px;margin:0 auto}
 
@@ -40,7 +43,7 @@
     .brand-text h1{margin:0;font-size:22px;color:#fff;letter-spacing:1px;font-weight:800}
     .brand-text p{margin:2px 0 0;font-size:12px;color:rgba(255,255,255,0.9);opacity:0.95}
 
-    /* Removed contact from UI - only present in print */
+    /* Contact removed from UI */
     .meta{display:none}
 
     /* Grid */
@@ -95,8 +98,13 @@
 
     footer{margin-top:20px;text-align:center;color:#fff;opacity:0.95}
 
-    /* Print helpers (used inside generated print window) */
-    /* nothing here - generated print CSS per-size in JS */
+    /* dropdown result */
+    #dropdown { position:absolute; background:#fff; border-radius:10px; box-shadow:0 12px 34px rgba(0,0,0,0.12); z-index:9999; max-height:320px; overflow:auto; }
+
+    /* responsive adjustments */
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
   </style>
 </head>
 <body>
@@ -113,14 +121,13 @@
         </div>
       </div>
 
-      <!-- contact removed from UI per request -->
       <div class="meta" id="uiContact" style="display:none">📞 7588756668</div>
     </div>
 
     <div class="grid">
       <!-- LEFT -->
       <div class="card">
-        <div style="display:flex;gap:10px;align-items:center">
+        <div style="display:flex;gap:10px;align-items:center;position:relative">
           <input id="barcodeInput" class="search" placeholder="Search by code or name..." autocomplete="off">
           <button id="scanQRBtn" class="icon-btn" title="Scan QR">📷</button>
           <label for="barcodeImageInput" class="icon-btn" title="Upload barcode image">🖼️</label>
@@ -187,10 +194,11 @@
   </div>
 
   <script>
-    /* CONFIG: set raw github excel URL */
+    /* ================== CONFIG ================== */
+    // Replace with your raw GitHub Excel file raw URL if different
     const EXCEL_FILE_URL = 'https://raw.githubusercontent.com/unique205/libas-stock/main/data.xlsx';
 
-    /* state */
+    /* ================== STATE ================== */
     let excelData = {};
     let html5QrCode = null;
     let cameraActive = false;
@@ -201,6 +209,7 @@
     let modalItem = null;
     let modalPriceType = '';
 
+    /* ================== HELPERS ================== */
     function safeNum(v){
       if (v === undefined || v === null) return 0;
       if (typeof v === 'string') {
@@ -213,13 +222,21 @@
     function fmt(v){ return '₹' + Number(v||0).toFixed(2); }
     function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 
+    /* ================== INIT ================== */
     window.addEventListener('DOMContentLoaded', ()=>{
       loadExcel();
       setupHandlers();
       const logo = document.getElementById('logoImg');
       logo.addEventListener('error', ()=> { document.getElementById('logoText').style.display='flex'; });
+      // register SW if available
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(reg => console.log('ServiceWorker registered', reg))
+          .catch(err => console.warn('SW registration failed', err));
+      }
     });
 
+    /* ================== EXCEL LOADING ================== */
     async function loadExcel(){
       try{
         const r = await fetch(EXCEL_FILE_URL);
@@ -272,6 +289,7 @@
       return out;
     }
 
+    /* ================== UI HANDLERS ================== */
     function setupHandlers(){
       const input = document.getElementById('barcodeInput');
       input.addEventListener('input', onSearchInput);
@@ -370,7 +388,7 @@
       `;
     }
 
-    /* Scanner */
+    /* ================== CAMERA / QR ================== */
     function toggleScanner(){ if (cameraActive) stopCamera(); else startCamera(); }
     function startCamera(){
       if (cameraActive) return;
@@ -386,7 +404,7 @@
       html5QrCode.stop().then(()=>{ document.getElementById('reader').style.display='none'; document.getElementById('scanQRBtn').textContent='📷'; cameraActive=false;}).catch(()=>{});
     }
 
-    /* modal + cart */
+    /* ================== MODAL & CART ================== */
     function openQtyModal(alias, priceType){
       modalItem = excelData[alias];
       modalPriceType = priceType;
@@ -469,7 +487,7 @@
     }
     function clearCart(){ if (!confirm('Clear cart?')) return; cart=[]; updateCart(); }
 
-    /* invoice counter */
+    /* ================== INVOICE COUNTER ================== */
     function getTodayKey(){
       const d = new Date();
       const y = d.getFullYear().toString().padStart(4,'0');
@@ -487,13 +505,10 @@
       return inv;
     }
 
-    /* PRINT: builds different layouts based on selected size.
-       Ensures narrow 3"/4" widths use stacked item blocks to avoid overflow.
-    */
+    /* ================== PRINT QUOTATION ================== */
     function printQuotation(){
       if (cart.length === 0){ alert('Cart empty'); return; }
       const size = document.getElementById('printSize').value;
-      // width handling
       const width = size === '3inch' ? '80mm' : size === '4inch' ? '105mm' : size === 'a6' ? '105mm' : '210mm';
       const fontBase = size === '3inch' ? 10 : size === '4inch' ? 11 : size === 'a6' ? 12 : 13;
       const invNo = nextInvoiceNumber();
@@ -501,21 +516,18 @@
       const totalQty = cart.reduce((s,i)=> s + i.quantity, 0);
       const totalAmount = cart.reduce((s,i)=> s + i.total, 0);
 
-      // for narrow widths use stacked blocks; for A6/A4 use table
       let contentRows = '';
       if (size === '3inch' || size === '4inch') {
-        // stacked
         contentRows = cart.map((it, idx)=>{
           return `
             <div class="item-block">
               <div class="row-top"><div class="sno">${idx+1}.</div><div class="name">${esc(it.name)}</div></div>
-              <div class="meta-line"><b>Code:</b> <span class="alias">${esc(it.alias)}</span> &nbsp; <b>Group:</b> <span class="group">${esc(it.group)}</span></div>
-              <div class="meta-line"><b>${it.priceType === 'sale' ? 'Sale' : 'Wholesale'}</b> <span class="price">${fmt(it.price)}</span> &nbsp; <b>Qty</b> ${it.quantity}  <span class="total-right">${fmt(it.total)}</span></div>
+              <div class="meta-line"><div><b>Code:</b> <span class="alias">${esc(it.alias)}</span></div><div><b>Group:</b> <span class="group">${esc(it.group)}</span></div></div>
+              <div class="meta-line"><div><b>${it.priceType === 'sale' ? 'Sale' : 'Wholesale'}</b> <span class="price">${fmt(it.price)}</span></div><div style="text-align:right"><b>Qty</b> ${it.quantity}  <span class="total-right">${fmt(it.total)}</span></div></div>
             </div>
           `;
         }).join('');
       } else {
-        // table
         contentRows = `
           <table class="items" role="table">
             <thead>
@@ -547,7 +559,6 @@
         </div>
       `;
 
-      // Build the final HTML for the print page
       const html = `
       <html>
         <head>
@@ -565,7 +576,6 @@
             .shop .address{font-size:${Math.max(9, fontBase-1)}px;color:#333}
             .meta{margin-top:6px;font-size:${Math.max(9, fontBase-1)}px}
             .inv{margin-top:6px;font-weight:700}
-            /* stacked item block for narrow receipts */
             .item-block{padding:6px 4px;border-bottom:1px dashed #ddd;word-break:break-word}
             .row-top{display:flex;gap:8px;align-items:center}
             .sno{width:18px;flex:0 0 18px;font-weight:800}
@@ -573,7 +583,6 @@
             .meta-line{font-size:${Math.max(9, fontBase-2)}px;color:#222;margin-top:4px;display:flex;justify-content:space-between;gap:6px}
             .price{font-weight:800;color:#111}
             .total-right{font-weight:900}
-            /* table layout for larger sizes */
             table.items{width:100%;border-collapse:collapse;margin-top:8px;font-size:${fontBase}px}
             table.items th{background: linear-gradient(90deg,#0b3d91,#174ea6);color:#fff;padding:6px;border:1px solid rgba(0,0,0,0.03);font-weight:800}
             table.items td{padding:6px;border-bottom:1px solid #eee;vertical-align:top}
@@ -581,7 +590,6 @@
             .total-amount{font-weight:900;font-size:${Math.round(fontBase*1.1)}px}
             .footer{margin-top:8px;text-align:center;font-weight:800;color:#333}
             .no-return{margin-top:6px;color:#b71c1c;font-weight:900}
-            /* small adjustments to avoid overflow */
             td, th { word-break: break-word; overflow-wrap: break-word; }
           </style>
         </head>
@@ -616,8 +624,21 @@
       w.document.open();
       w.document.write(html);
       w.document.close();
-      // give browser small time to render before print
       setTimeout(()=> w.print(), 700);
+    }
+
+    /* ================== OPTIONAL: checkForUpdates (PWA) ================== */
+    async function checkForUpdates() {
+      if (!('serviceWorker' in navigator)) return alert('Service worker not supported in this browser');
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) return alert('No service worker registration found');
+      try {
+        await reg.update();
+        alert('Update check completed. If new content is available, reload the page.');
+      } catch (e) {
+        console.error(e);
+        alert('Update check failed: ' + e.message);
+      }
     }
   </script>
 </body>
