@@ -1,1503 +1,634 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LIBAS Scanner</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-            min-height: 100vh;
-            padding: 20px;
-            overflow-x: hidden;
-            position: relative;
-        }
-
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect fill="rgba(255,255,255,0.03)" width="50" height="50"/><rect fill="rgba(255,255,255,0.03)" x="50" y="50" width="50" height="50"/></svg>');
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            position: relative;
-            z-index: 1;
-        }
-
-        .loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            flex-direction: column;
-            gap: 25px;
-        }
-
-        .loading-screen.hidden {
-            display: none;
-        }
-
-        .loader {
-            width: 70px;
-            height: 70px;
-            border: 5px solid rgba(255, 255, 255, 0.2);
-            border-top: 5px solid #fff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-            font-size: 20px;
-            font-weight: 600;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 30px;
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        .logo-title {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 10px;
-        }
-
-        .logo {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 35px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        h1 {
-            font-size: 42px;
-            font-weight: 900;
-            letter-spacing: 3px;
-            text-shadow: 0 3px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .subtitle {
-            font-size: 14px;
-            opacity: 0.9;
-            font-weight: 400;
-            font-style: italic;
-        }
-
-        .data-badge {
-            display: inline-block;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 8px 20px;
-            border-radius: 50px;
-            margin-top: 15px;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .main-grid {
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 25px;
-            margin-bottom: 25px;
-        }
-
-        .search-section {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 20px;
-            padding: 25px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        .search-wrapper {
-            position: relative;
-        }
-
-        .search-input-group {
-            position: relative;
-            margin-bottom: 15px;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 15px 55px 15px 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 15px;
-            font-size: 16px;
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            font-family: 'Poppins', sans-serif;
-            transition: all 0.3s;
-        }
-
-        .search-input::placeholder {
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .search-input:focus {
-            outline: none;
-            border-color: rgba(255, 255, 255, 0.6);
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .search-actions {
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: flex;
-            gap: 8px;
-        }
-
-        .action-btn {
-            padding: 8px 12px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 18px;
-            transition: all 0.2s;
-        }
-
-        .action-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.05);
-        }
-
-        .action-btn.active {
-            background: #f5576c;
-            border-color: #f5576c;
-        }
-
-        .dropdown {
-            position: absolute;
-            top: calc(100% + 10px);
-            left: 0;
-            right: 0;
-            background: rgba(255, 255, 255, 0.98);
-            border-radius: 15px;
-            max-height: 350px;
-            overflow-y: auto;
-            z-index: 1000;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(10px);
-        }
-
-        .dropdown.hidden {
-            display: none;
-        }
-
-        .dropdown-item {
-            padding: 15px 20px;
-            cursor: pointer;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            transition: all 0.2s;
-            color: #333;
-        }
-
-        .dropdown-item:hover,
-        .dropdown-item.selected {
-            background: rgba(102, 126, 234, 0.1);
-        }
-
-        .dropdown-alias {
-            font-weight: 700;
-            color: #667eea;
-            font-size: 15px;
-        }
-
-        .dropdown-name {
-            color: #666;
-            font-size: 13px;
-            margin-top: 3px;
-        }
-
-        #reader {
-            border-radius: 15px;
-            overflow: hidden;
-            margin-top: 15px;
-            max-width: 400px;
-            max-height: 300px;
-        }
-
-        #reader.hidden {
-            display: none;
-        }
-
-        .cart-section {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 20px;
-            padding: 25px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            position: sticky;
-            top: 20px;
-            max-height: calc(100vh - 40px);
-            overflow-y: auto;
-        }
-
-        .cart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .cart-title {
-            font-size: 22px;
-            font-weight: 700;
-        }
-
-        .cart-count {
-            background: #f5576c;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 14px;
-        }
-
-        .cart-items {
-            margin-bottom: 20px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .cart-item {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 10px;
-        }
-
-        .cart-item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: start;
-            margin-bottom: 10px;
-        }
-
-        .cart-item-name {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .cart-item-alias {
-            font-size: 12px;
-            opacity: 0.8;
-        }
-
-        .remove-btn {
-            background: rgba(245, 87, 108, 0.3);
-            border: none;
-            color: #fff;
-            width: 25px;
-            height: 25px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-
-        .remove-btn:hover {
-            background: #f5576c;
-            transform: scale(1.1);
-        }
-
-        .cart-item-details {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .quantity-control {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 5px;
-            border-radius: 8px;
-        }
-
-        .qty-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: #fff;
-            width: 25px;
-            height: 25px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 700;
-            transition: all 0.2s;
-        }
-
-        .qty-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .qty-value {
-            min-width: 30px;
-            text-align: center;
-            font-weight: 600;
-        }
-
-        .cart-item-price {
-            font-weight: 700;
-            font-size: 16px;
-        }
-
-        .cart-summary {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-
-        .summary-row.total {
-            font-size: 18px;
-            font-weight: 700;
-            padding-top: 10px;
-            border-top: 2px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .print-buttons {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .print-btn, .clear-cart-btn {
-            padding: 12px;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 600;
-            font-family: 'Poppins', sans-serif;
-            transition: all 0.2s;
-        }
-
-        .print-btn {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: #fff;
-        }
-
-        .print-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .clear-cart-btn {
-            background: rgba(255, 255, 255, 0.2);
-            color: #fff;
-            grid-column: 1 / -1;
-        }
-
-        .clear-cart-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .result-section {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 20px;
-            padding: 25px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        #resultCard.hidden {
-            display: none;
-        }
-
-        .product-card {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
-            border-radius: 20px;
-            padding: 30px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        .product-header {
-            text-align: center;
-            padding-bottom: 20px;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-            margin-bottom: 25px;
-        }
-
-        .product-name {
-            font-size: 28px;
-            font-weight: 800;
-            margin-bottom: 8px;
-        }
-
-        .product-alias {
-            font-size: 16px;
-            opacity: 0.8;
-        }
-
-        .price-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-
-        .price-card {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            border: 2px solid transparent;
-        }
-
-        .price-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        .price-card.mrp {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-
-        .price-card.sale {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-
-        .price-card.sale:hover {
-            border-color: rgba(255, 255, 255, 0.5);
-        }
-
-        .price-card.wholesale {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-        }
-
-        .price-card.wholesale:hover {
-            border-color: rgba(255, 255, 255, 0.5);
-        }
-
-        .price-label {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 10px;
-            opacity: 0.9;
-            font-weight: 600;
-        }
-
-        .price-value {
-            font-size: 32px;
-            font-weight: 900;
-        }
-
-        .add-text {
-            font-size: 11px;
-            margin-top: 8px;
-            opacity: 0.8;
-            font-style: italic;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-        }
-
-        .info-card {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 15px;
-            text-align: center;
-        }
-
-        .info-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            opacity: 0.8;
-        }
-
-        .info-value {
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            padding: 20px;
-        }
-
-        .modal.hidden {
-            display: none;
-        }
-
-        .modal-content {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 20px;
-            padding: 30px;
-            max-width: 400px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-
-        .modal-header {
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .modal-body {
-            margin-bottom: 20px;
-        }
-
-        .modal-product {
-            font-size: 16px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .modal-qty {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .modal-qty-btn {
-            width: 40px;
-            height: 40px;
-            border: none;
-            background: rgba(255, 255, 255, 0.2);
-            color: #fff;
-            font-size: 20px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-weight: 700;
-            transition: all 0.2s;
-        }
-
-        .modal-qty-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.1);
-        }
-
-        .modal-qty-value {
-            font-size: 28px;
-            font-weight: 700;
-            min-width: 50px;
-            text-align: center;
-        }
-
-        .modal-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .modal-btn {
-            padding: 12px;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 600;
-            font-family: 'Poppins', sans-serif;
-            transition: all 0.2s;
-        }
-
-        .modal-btn.confirm {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: #fff;
-        }
-
-        .modal-btn.cancel {
-            background: rgba(255, 255, 255, 0.2);
-            color: #fff;
-        }
-
-        .modal-btn:hover {
-            transform: translateY(-2px);
-        }
-
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-            .print-area, .print-area * {
-                visibility: visible;
-            }
-            .print-area {
-                position: absolute;
-                left: 0;
-                top: 0;
-            }
-        }
-
-        @media (max-width: 1024px) {
-            .main-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .cart-section {
-                position: static;
-                max-height: none;
-            }
-        }
-
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 32px;
-            }
-
-            .price-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LIBAS Quotation - Scanner</title>
+
+  <!-- libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --royal:#0b3d91;     /* deep royal blue */
+      --royal-2:#174ea6;
+      --gold:#d4af37;
+      --muted:#6b6b6b;
+      --card-bg: rgba(255,255,255,0.95);
+    }
+    *{box-sizing:border-box}
+    body{
+      font-family:'Poppins',sans-serif;
+      margin:0;
+      min-height:100vh;
+      background: linear-gradient(135deg,#07327a 0%, #1a4fb0 40%, #08284d 100%);
+      color:#111;
+      padding:20px;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    .wrap{max-width:1180px;margin:0 auto}
+
+    /* Header */
+    .top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:18px;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      padding:12px 16px;
+      border-radius:14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+      border: 1px solid rgba(212,175,55,0.06);
+    }
+    .logo{
+      width:72px;height:72px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+      background: linear-gradient(135deg,var(--gold),#ffd87e);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+      overflow:hidden;
+    }
+    .logo img{width:100%;height:100%;object-fit:cover;display:block}
+    .brand-text h1{margin:0;font-size:22px;color:#fff;letter-spacing:1px;font-weight:800}
+    .brand-text p{margin:2px 0 0;font-size:12px;color:rgba(255,255,255,0.9);opacity:0.95}
+
+    .meta{
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      padding:12px 14px;border-radius:12px;border:1px solid rgba(212,175,55,0.06);
+      color:#fff;font-weight:700;
+      box-shadow:0 8px 20px rgba(0,0,0,0.18)
+    }
+
+    /* Grid */
+    .grid{display:grid;grid-template-columns:1fr 380px;gap:18px}
+    @media(max-width:980px){ .grid{grid-template-columns:1fr} }
+
+    /* Left column card */
+    .card{
+      background: rgba(255,255,255,0.98);
+      border-radius:14px;padding:16px;
+      box-shadow: 0 12px 34px rgba(0,0,0,0.18);
+      border: 2px solid rgba(212,175,55,0.08);
+    }
+
+    .controls{display:flex;gap:8px;align-items:center}
+    .search{
+      flex:1;padding:12px;border-radius:10px;border:1px solid #e6e6e6;font-size:15px
+    }
+    .icon-btn{padding:10px;border-radius:10px;border:none;background:var(--royal);color:#fff;cursor:pointer}
+
+    .result{margin-top:12px}
+
+    .product-card{display:flex;gap:14px;align-items:flex-start}
+    .prod-left{flex:1}
+    .prod-title{font-weight:800;font-size:20px;color:var(--royal-2);margin-bottom:6px}
+    .prod-code{font-size:13px;margin-bottom:8px}
+    .prod-code b{font-weight:800} /* alias bold */
+    .price-row{display:flex;gap:10px}
+    .price-btn{flex:1;padding:10px;border-radius:10px;color:#fff;font-weight:800;cursor:pointer;text-align:center}
+    .price-mrp{background:linear-gradient(135deg,#f1c40f,#f7d78c);color:#111}
+    .price-sale{background:linear-gradient(135deg,#0b6fd6,#0b49a5)}
+    .price-wholesale{background:linear-gradient(135deg,#2aa876,#06a06d)}
+    .muted{color:var(--muted);font-size:12px;margin-top:10px}
+
+    /* Right column - cart */
+    .cart-side{position:sticky;top:24px;height:calc(100vh - 48px);overflow:auto;padding:12px}
+    .cart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .cart-title{font-weight:900;color:var(--royal-2);font-size:18px}
+    .cart-count{background:linear-gradient(135deg,var(--gold),#ffd87e);padding:6px 10px;border-radius:999px;font-weight:800}
+
+    .cart-list{display:grid;gap:10px;max-height:55vh;overflow:auto;padding-right:8px}
+    .cart-item{
+      display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px;border-radius:10px;
+      background:linear-gradient(180deg,rgba(11,61,145,0.02),rgba(255,255,255,0.01));
+      border:1px solid rgba(212,175,55,0.06)
+    }
+    .ci-left{flex:1}
+    .ci-name{font-weight:700;color:#112}
+    .ci-meta{font-size:13px;color:#333}
+    .ci-meta b{font-weight:900} /* alias & group bold */
+
+    .ci-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+    .qty-controls{display:flex;gap:6px;align-items:center}
+    .qty-btn{background:transparent;border:1px solid rgba(0,0,0,0.06);padding:6px 8px;border-radius:8px;cursor:pointer}
+    .remove-btn{background:transparent;border:none;color:#c62828;font-weight:800;font-size:18px;cursor:pointer}
+
+    .summary{margin-top:12px;padding:12px;border-radius:10px;background:linear-gradient(90deg,#f8f4ea, #fff);border:1px solid rgba(212,175,55,0.12)}
+    .summ-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-weight:800}
+    .actions{display:flex;gap:8px;align-items:center;margin-top:12px}
+
+    .select{padding:8px;border-radius:8px;border:1px solid #ddd}
+
+    /* modal */
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center}
+    .modal-box{background:#fff;padding:18px;border-radius:12px;width:360px;box-shadow:0 20px 50px rgba(0,0,0,0.4)}
+
+    footer{margin-top:20px;text-align:center;color:#fff;opacity:0.95}
+  </style>
 </head>
 <body>
-    <div class="loading-screen" id="loadingScreen">
-        <div class="loader"></div>
-        <div class="loading-text">Loading Excel data from GitHub...</div>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="logo" id="logoWrap">
+          <!-- try to load logo.png from same folder; fallback to text -->
+          <img id="logoImg" src="logo.png" alt="logo" onerror="this.style.display='none';document.getElementById('logoText').style.display='flex'">
+          <div id="logoText" style="display:none;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:22px">👗 LIBAS</div>
+        </div>
+        <div class="brand-text">
+          <h1>LIBAS</h1>
+          <p>Jo baat libas se ho wo lafzon me kahan</p>
+        </div>
+      </div>
+
+      <div class="meta">
+        📞 Mobile: 7588756668
+      </div>
     </div>
 
-    <div class="container">
-        <div class="header">
-            <div class="logo-title">
-                <div class="logo">👗</div>
-                <div>
-                    <h1>LIBAS</h1>
-                    <p class="subtitle">Jo baat libas se ho wo lafzon me kahan</p>
-                </div>
-            </div>
-            <div class="data-badge">
-                <span>📦 Total Items: </span>
-                <span id="totalItems">0</span>
-            </div>
+    <div class="grid">
+      <!-- left -->
+      <div class="card">
+        <div style="display:flex;gap:10px;align-items:center">
+          <input id="barcodeInput" class="search" placeholder="Search by code or name..." autocomplete="off">
+          <button id="scanQRBtn" class="icon-btn" title="Scan QR">📷</button>
+          <label for="barcodeImageInput" class="icon-btn" title="Upload barcode image">🖼️</label>
+          <input id="barcodeImageInput" type="file" accept="image/*" style="display:none">
         </div>
 
-        <div class="main-grid">
-            <div>
-                <div class="search-section">
-                    <div class="search-wrapper">
-                        <div class="search-input-group">
-                            <input type="text" id="barcodeInput" class="search-input" placeholder="Search by code or name..." autocomplete="off">
-                            <div class="search-actions">
-                                <button id="scanQRBtn" class="action-btn" title="Scan QR Code">📷</button>
-                                <label for="barcodeImageInput" class="action-btn" title="Upload Image">🖼️</label>
-                                <input type="file" id="barcodeImageInput" accept="image/*" style="display: none;">
-                            </div>
-                        </div>
-                        <div id="dropdown" class="dropdown hidden"></div>
-                    </div>
-                    <div id="reader" class="hidden"></div>
-                </div>
+        <div id="resultCard" class="result" style="display:none"></div>
+        <div id="reader" style="margin-top:12px;display:none"></div>
+      </div>
 
-                <div class="result-section">
-                    <div id="resultCard" class="hidden"></div>
-                </div>
-            </div>
-
-            <div class="cart-section">
-                <div class="cart-header">
-                    <div class="cart-title">🛒 Cart</div>
-                    <div class="cart-count" id="cartCount">0</div>
-                </div>
-
-                <div class="cart-items" id="cartItems">
-                    <div style="text-align: center; opacity: 0.6; padding: 40px 20px;">
-                        <div style="font-size: 48px; margin-bottom: 10px;">🛍️</div>
-                        <div>Your cart is empty</div>
-                    </div>
-                </div>
-
-                <div class="cart-summary" id="cartSummary" style="display: none;">
-                    <div class="summary-row">
-                        <span>Total Items:</span>
-                        <span id="summaryItems">0</span>
-                    </div>
-                    <div class="summary-row">
-                        <span>Total Quantity:</span>
-                        <span id="summaryQty">0</span>
-                    </div>
-                    <div class="summary-row total">
-                        <span>Total Amount:</span>
-                        <span id="summaryTotal">₹0</span>
-                    </div>
-                </div>
-
-                <div class="print-buttons" id="printButtons" style="display: none;">
-                    <button class="print-btn" onclick="printQuotation('3inch')">🖨️ Print 3"</button>
-                    <button class="print-btn" onclick="printQuotation('4inch')">🖨️ Print 4"</button>
-                    <button class="clear-cart-btn" onclick="clearCart()">🗑️ Clear Cart</button>
-                </div>
-            </div>
+      <!-- right cart -->
+      <div class="card cart-side">
+        <div class="cart-header">
+          <div class="cart-title">🛒 Cart</div>
+          <div class="cart-count" id="cartCount">0</div>
         </div>
+
+        <div id="cartItems" class="cart-list">
+          <div style="text-align:center;padding:30px;color:#666">Your cart is empty</div>
+        </div>
+
+        <div id="cartSummary" class="summary" style="display:none">
+          <div class="summ-row"><div>Total Lines</div><div id="summaryItems">0</div></div>
+          <div class="summ-row"><div>Total Qty</div><div id="summaryQty">0</div></div>
+          <div class="summ-row" style="font-size:18px"><div>Total Amount</div><div id="summaryTotal">₹0.00</div></div>
+
+          <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+            <label for="printSize" style="font-weight:700;margin-right:6px;color:#333">Print size:</label>
+            <select id="printSize" class="select">
+              <option value="3inch">3&quot; (80mm)</option>
+              <option value="4inch">4&quot; (105mm)</option>
+              <option value="a6">A6</option>
+              <option value="a4" selected>A4</option>
+            </select>
+          </div>
+
+          <div class="actions">
+            <button class="icon-btn" style="background:linear-gradient(135deg,var(--royal-2),var(--royal));color:#fff" onclick="printQuotation()">🖨️ Print Quotation</button>
+            <button class="icon-btn" style="background:transparent;border:1px solid rgba(0,0,0,0.06);color:var(--royal)" onclick="clearCart()">🗑️ Clear Cart</button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="modal hidden" id="qtyModal">
-        <div class="modal-content">
-            <div class="modal-header">Add to Cart</div>
-            <div class="modal-body">
-                <div class="modal-product" id="modalProduct"></div>
-                <div class="modal-qty">
-                    <button class="modal-qty-btn" onclick="changeModalQty(-1)">-</button>
-                    <div class="modal-qty-value" id="modalQty">1</div>
-                    <button class="modal-qty-btn" onclick="changeModalQty(1)">+</button>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
-                <button class="modal-btn confirm" onclick="confirmAddToCart()">Add to Cart</button>
-            </div>
-        </div>
+    <footer>
+      <div style="font-weight:700">Address: GN Azad College Road, Vasant Nagar, Pusad-445204 (MH)</div>
+    </footer>
+  </div>
+
+  <!-- qty modal -->
+  <div id="qtyModal" style="display:none" class="modal">
+    <div class="modal-box">
+      <div style="font-weight:900;margin-bottom:8px" id="modalProduct">Add to cart</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px">
+        <button onclick="changeModalQty(-1)" class="qty-btn">-</button>
+        <div id="modalQty" style="font-weight:900">1</div>
+        <button onclick="changeModalQty(1)" class="qty-btn">+</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeModal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer">Cancel</button>
+        <button onclick="confirmAddToCart()" style="flex:1;padding:10px;border-radius:8px;background:linear-gradient(135deg,var(--gold),#ffd87e);border:none;cursor:pointer;font-weight:800">Add to Cart</button>
+      </div>
     </div>
+  </div>
 
-    <script>
-        // GitHub Excel file URL - REPLACE THIS WITH YOUR GITHUB RAW FILE URL
-        const EXCEL_FILE_URL = 'https://raw.githubusercontent.com/unique205/libas-stock/main/data.xlsx';
+  <script>
+    /* ========== CONFIG ========== */
+    // set this to your raw github excel url (raw.githubusercontent.com link)
+    const EXCEL_FILE_URL = 'https://raw.githubusercontent.com/unique205/libas-stock/main/data.xlsx';
 
-        let excelData = {};
-        let html5QrCode = null;
-        let cameraActive = false;
-        let searchTimeout = null;
-        let selectedIndex = -1;
-        let currentProduct = null;
-        let cart = [];
-        let modalQty = 1;
-        let modalItem = null;
-        let modalPriceType = '';
+    /* ========== state ========== */
+    let excelData = {};
+    let html5QrCode = null;
+    let cameraActive = false;
+    let searchTimeout = null;
+    let currentProduct = null;
+    let cart = [];
+    let modalQty = 1;
+    let modalItem = null;
+    let modalPriceType = '';
 
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        function playBeep(freq = 800, duration = 0.1) {
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            osc.connect(gain);
-            gain.connect(audioContext.destination);
-            osc.frequency.value = freq;
-            gain.gain.value = 0.15;
-            osc.start();
-            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-            osc.stop(audioContext.currentTime + duration);
-        }
+    /* ========== helpers ========== */
+    function safeNum(v){
+      if (v === undefined || v === null) return 0;
+      if (typeof v === 'string') {
+        const cleaned = v.replace(/[^0-9.\-]/g,'');
+        const n = parseFloat(cleaned);
+        return isNaN(n)?0:n;
+      }
+      const n = Number(v); return isNaN(n)?0:n;
+    }
+    function fmt(v){ return '₹' + Number(v||0).toFixed(2); }
+    function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 
-        window.addEventListener('DOMContentLoaded', function() {
-            loadExcelFromGitHub();
+    /* ========== Excel loading ========== */
+    window.addEventListener('DOMContentLoaded', ()=> {
+      loadExcel();
+      setupHandlers();
+      // if logo missing, show text logo
+      const logo = document.getElementById('logoImg');
+      logo.addEventListener('error', ()=> { document.getElementById('logoText').style.display='flex' });
+    });
+
+    async function loadExcel(){
+      try{
+        const r = await fetch(EXCEL_FILE_URL);
+        if (!r.ok) throw new Error('Failed to fetch Excel - check URL & repo visibility');
+        const ab = await r.arrayBuffer();
+        const wb = XLSX.read(ab, {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(sheet, { header:1 });
+        const hr = detectHeaderRow(data);
+        if (hr === -1) throw new Error('Header row not found. Ensure headers like Name, Alias, MRP, Sale, Wholesale, Stock, Group exist.');
+        excelData = parseSheet(data, hr);
+        document.getElementById('totalItems')?.remove?.(); // optional
+      }catch(e){
+        console.error(e);
+        alert('Error loading Excel: ' + e.message);
+      }
+    }
+
+    function detectHeaderRow(data){
+      const keywords = ['name','alias','mrp','sale','price','wholesale','stock','group'];
+      for (let i=0;i<Math.min(10,data.length);i++){
+        const row = data[i];
+        if (!row || row.length < 3) continue;
+        const text = row.join('|').toLowerCase();
+        const count = keywords.filter(k=> text.includes(k)).length;
+        if (count >= 3) return i;
+      }
+      return -1;
+    }
+
+    function parseSheet(data, headerRow){
+      const out = {};
+      const headers = data[headerRow].map(h=>String(h||'').trim().toLowerCase());
+      const getIdx = key => headers.findIndex(h=> h.includes(key));
+      const nameI = getIdx('name'), aliasI = getIdx('alias'), mrpI = getIdx('mrp'), saleI = getIdx('sale'), wholesaleI = getIdx('wholesale'), stockI = getIdx('stock'), groupI = getIdx('group');
+      for (let r=headerRow+1;r<data.length;r++){
+        const row = data[r];
+        if (!row || row.length === 0) continue;
+        const alias = aliasI>=0 && row[aliasI] ? String(row[aliasI]).trim() : '';
+        if (!alias) continue;
+        out[alias] = {
+          name: nameI>=0 ? (row[nameI] || '-') : '-',
+          alias: alias,
+          mrp: safeNum(mrpI>=0 ? row[mrpI] : 0),
+          salePrice: safeNum(saleI>=0 ? row[saleI] : 0),
+          wholesale: safeNum(wholesaleI>=0 ? row[wholesaleI] : 0),
+          stock: stockI>=0 ? (row[stockI] || '-') : '-',
+          group: groupI>=0 ? (row[groupI] || '-') : '-'
+        };
+      }
+      return out;
+    }
+
+    /* ========== UI handlers ========== */
+    function setupHandlers(){
+      const input = document.getElementById('barcodeInput');
+      input.addEventListener('input', onSearchInput);
+      input.addEventListener('keydown', onSearchKey);
+      document.getElementById('scanQRBtn').addEventListener('click', toggleScanner);
+      document.getElementById('barcodeImageInput').addEventListener('change', onImageUpload);
+      document.addEventListener('click', (e)=>{ if (!e.target.closest('.card')) removeDropdown(); });
+    }
+
+    function onImageUpload(e){
+      const f = e.target.files[0]; if (!f) return;
+      const rd = new FileReader();
+      rd.onload = ev => {
+        Quagga.decodeSingle({
+          src: ev.target.result, numOfWorkers:0, inputStream:{size:800},
+          decoder:{readers:['ean_reader','code_128_reader','code_39_reader','upc_reader','upc_e_reader']}
+        }, res => {
+          if (res && res.codeResult) searchAndShow(res.codeResult.code);
+          else alert('No barcode detected in image');
         });
+      };
+      rd.readAsDataURL(f); e.target.value='';
+    }
 
-        async function loadExcelFromGitHub() {
-            try {
-                const response = await fetch(EXCEL_FILE_URL);
-                
-                if (!response.ok) {
-                    throw new Error('Failed to fetch Excel file from GitHub. Check the URL and make sure the file is accessible.');
-                }
-                
-                const arrayBuffer = await response.arrayBuffer();
-                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-                
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+    function onSearchInput(e){
+      clearTimeout(searchTimeout);
+      const q = e.target.value.trim();
+      if (!q) { removeDropdown(); return; }
+      searchTimeout = setTimeout(()=> showDropdown(q), 180);
+    }
 
-                const headerRowIndex = detectHeaderRow(data);
-                if (headerRowIndex === -1) {
-                    throw new Error('Invalid data format. Make sure your sheet has columns like Name, Alias, MRP, Sale Price, etc.');
-                }
+    function onSearchKey(e){
+      const dd = document.getElementById('dropdown');
+      if (!dd) return;
+      const items = Array.from(dd.querySelectorAll('.dd-item'));
+      if (e.key === 'ArrowDown'){ e.preventDefault(); selectedIndex = (selectedIndex+1) % items.length; highlight(items); }
+      else if (e.key === 'ArrowUp'){ e.preventDefault(); selectedIndex = selectedIndex <=0 ? items.length-1 : selectedIndex-1; highlight(items); }
+      else if (e.key === 'Enter'){ e.preventDefault(); if (selectedIndex>=0) items[selectedIndex].click(); }
+      else if (e.key === 'Escape') removeDropdown();
+    }
 
-                excelData = processSheetData(data, headerRowIndex);
-                updateTotalItems();
-                
-                document.getElementById('loadingScreen').classList.add('hidden');
-                playBeep(1000, 0.15);
-                
-                setTimeout(() => {
-                    document.getElementById('barcodeInput').focus();
-                }, 300);
-            } catch (error) {
-                document.getElementById('loadingScreen').innerHTML = `
-                    <div style="text-align: center; padding: 40px; max-width: 600px;">
-                        <div style="font-size: 60px; margin-bottom: 20px;">❌</div>
-                        <div style="font-size: 22px; font-weight: 600; margin-bottom: 15px;">Error Loading Data</div>
-                        <div style="font-size: 15px; line-height: 1.6; opacity: 0.9;">
-                            ${error.message}
-                            <br><br>
-                            <strong>Setup Instructions:</strong>
-                            <br>1. Upload your Excel file to GitHub
-                            <br>2. Get the raw file URL
-                            <br>3. Replace EXCEL_FILE_URL in the code
-                            <br>4. Make sure the file is publicly accessible
-                        </div>
-                    </div>
-                `;
-                playBeep(200, 0.2);
-            }
+    let selectedIndex = -1;
+    function showDropdown(q){
+      removeDropdown();
+      const dd = document.createElement('div'); dd.id='dropdown';
+      dd.style.position='absolute'; dd.style.left='40px'; dd.style.right='40px'; dd.style.top='130px';
+      dd.style.background='#fff'; dd.style.borderRadius='10px'; dd.style.boxShadow='0 12px 34px rgba(0,0,0,0.12)'; dd.style.zIndex=9999; dd.style.maxHeight='320px'; dd.style.overflow='auto';
+      const nq = q.toLowerCase().replace(/^0+/, '');
+      const matches = [];
+      for (const a in excelData){
+        const it = excelData[a];
+        if (a.replace(/^0+/,'').toLowerCase().includes(nq) || (it.name||'').toLowerCase().includes(nq)) matches.push(it);
+      }
+      if (matches.length === 0) return;
+      matches.slice(0,12).forEach((it, idx)=>{
+        const div = document.createElement('div'); div.className='dd-item'; div.style.padding='10px'; div.style.borderBottom='1px solid #eee'; div.style.cursor='pointer';
+        div.innerHTML = `<div style="font-weight:800">${esc(it.alias)}</div><div style="font-size:13px;color:#666">${esc(it.name)}</div>`;
+        div.onclick = ()=>{ searchAndShow(it.alias); document.getElementById('barcodeInput').value=''; removeDropdown(); };
+        dd.appendChild(div);
+      });
+      document.body.appendChild(dd);
+      selectedIndex = 0; highlight(Array.from(dd.querySelectorAll('.dd-item')));
+    }
+    function removeDropdown(){ const d=document.getElementById('dropdown'); if(d) d.remove(); selectedIndex=-1; }
+    function highlight(items){ items.forEach((it,i)=> it.style.background=(i===selectedIndex?'#f3f6ff':'#fff')); items[selectedIndex]?.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+
+    function searchAndShow(q){
+      const norm = String(q).replace(/^0+/,'');
+      let item = excelData[q] || null;
+      if (!item){
+        for (const a in excelData){
+          if (a.replace(/^0+/,'') === norm){ item = excelData[a]; break; }
         }
+      }
+      if (!item){ alert('Item not found: ' + q); return; }
+      currentProduct = item;
+      renderProductCard(item);
+    }
 
-        function detectHeaderRow(data) {
-            const keywords = ['name', 'alias', 'mrp', 'sale', 'price', 'wholesale', 'stock', 'group'];
-            
-            for (let i = 0; i < Math.min(10, data.length); i++) {
-                const row = data[i];
-                if (!row || row.length < 4) continue;
+    function renderProductCard(it){
+      const rc = document.getElementById('resultCard');
+      rc.style.display='block';
+      rc.innerHTML = `
+        <div class="product-card">
+          <div class="prod-left">
+            <div class="prod-title">${esc(it.name)}</div>
+            <div class="prod-code">Code: <b>${esc(it.alias)}</b> • Group: <b>${esc(it.group)}</b></div>
+            <div class="price-row">
+              <div class="price-btn price-mrp">MRP<br><div style="font-size:18px;margin-top:6px">${fmt(it.mrp)}</div></div>
+              <div class="price-btn price-sale" onclick="openQtyModal('${esc(it.alias)}','sale')">Sale<br><div style="font-size:18px;margin-top:6px">${fmt(it.salePrice)}</div></div>
+              <div class="price-btn price-wholesale" onclick="openQtyModal('${esc(it.alias)}','wholesale')">Wholesale<br><div style="font-size:18px;margin-top:6px">${fmt(it.wholesale)}</div></div>
+            </div>
+            <div class="muted">Stock: ${esc(it.stock)}</div>
+          </div>
+        </div>
+      `;
+    }
 
-                const rowText = row.join('|').toLowerCase();
-                const matchCount = keywords.filter(kw => rowText.includes(kw)).length;
-                
-                if (matchCount >= 4) {
-                    return i;
-                }
-            }
-            return -1;
-        }
+    /* ========== scanner (camera) ========== */
+    function toggleScanner(){ if (cameraActive) stopCamera(); else startCamera(); }
+    function startCamera(){
+      if (cameraActive) return;
+      html5QrCode = new Html5Qrcode("reader");
+      document.getElementById('reader').style.display='block';
+      document.getElementById('scanQRBtn').textContent='⏹️';
+      html5QrCode.start({facingMode:'environment'},{fps:8,qrbox:200}, decoded => {
+        searchAndShow(decoded);
+      }, err => {}).then(()=> cameraActive=true).catch(e=> { alert('Camera error: '+e.message) });
+    }
+    function stopCamera(){
+      if (!html5QrCode) return;
+      html5QrCode.stop().then(()=>{ document.getElementById('reader').style.display='none'; document.getElementById('scanQRBtn').textContent='📷'; cameraActive=false;}).catch(()=>{});
+    }
 
-        function processSheetData(data, headerRowIndex) {
-            const processedData = {};
-            const headers = data[headerRowIndex].map(h => String(h).trim().toLowerCase());
-            
-            const nameIdx = headers.findIndex(h => h.includes('name'));
-            const aliasIdx = headers.findIndex(h => h.includes('alias'));
-            const mrpIdx = headers.findIndex(h => h.includes('mrp'));
-            const salePriceIdx = headers.findIndex(h => h.includes('sale'));
-            const wholesaleIdx = headers.findIndex(h => h.includes('wholesale'));
-            const stockIdx = headers.findIndex(h => h.includes('stock'));
-            const groupIdx = headers.findIndex(h => h.includes('group'));
+    /* ========== modal + cart ========== */
+    function openQtyModal(alias, priceType){
+      modalItem = excelData[alias];
+      modalPriceType = priceType;
+      modalQty = 1;
+      document.getElementById('modalProduct').textContent = `${modalItem.name} — ${priceType === 'sale' ? 'Sale' : 'Wholesale'} ${fmt(priceType === 'sale' ? modalItem.salePrice : modalItem.wholesale)}`;
+      document.getElementById('modalQty').textContent = modalQty;
+      document.getElementById('qtyModal').style.display='flex';
+    }
+    function closeModal(){ document.getElementById('qtyModal').style.display='none'; modalItem=null; modalPriceType=''; modalQty=1; }
+    function changeModalQty(delta){ modalQty = Math.max(1, modalQty + delta); document.getElementById('modalQty').textContent = modalQty; }
 
-            for (let i = headerRowIndex + 1; i < data.length; i++) {
-                const row = data[i];
-                if (!row || row.length < 4) continue;
-
-                const alias = row[aliasIdx] ? String(row[aliasIdx]).trim() : '';
-                if (!alias) continue;
-
-                processedData[alias] = {
-                    name: row[nameIdx] || '-',
-                    mrp: row[mrpIdx] || '-',
-                    salePrice: row[salePriceIdx] || '-',
-                    wholesale: row[wholesaleIdx] || '-',
-                    stock: row[stockIdx] || '-',
-                    group: row[groupIdx] || '-',
-                    alias: alias
-                };
-            }
-
-            return processedData;
-        }
-
-        function updateTotalItems() {
-            const total = Object.keys(excelData).length;
-            document.getElementById('totalItems').textContent = total;
-        }
-
-        document.getElementById('barcodeInput').addEventListener('input', handleSearchInput);
-        document.getElementById('barcodeInput').addEventListener('keydown', handleBarcodeKeydown);
-        document.getElementById('scanQRBtn').addEventListener('click', toggleScanner);
-        document.getElementById('barcodeImageInput').addEventListener('change', handleBarcodeImage);
-
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.search-wrapper')) {
-                document.getElementById('dropdown').classList.add('hidden');
-                selectedIndex = -1;
-            }
+    function confirmAddToCart(){
+      if (!modalItem) return;
+      const price = modalPriceType === 'sale' ? safeNum(modalItem.salePrice) : safeNum(modalItem.wholesale);
+      const idx = cart.findIndex(c=> c.alias === modalItem.alias && c.priceType === modalPriceType);
+      if (idx >= 0){
+        cart[idx].quantity += modalQty;
+        cart[idx].total = cart[idx].quantity * cart[idx].price;
+      } else {
+        cart.push({
+          alias: modalItem.alias,
+          name: modalItem.name,
+          group: modalItem.group,
+          priceType: modalPriceType,
+          price: price,
+          quantity: modalQty,
+          total: price * modalQty
         });
+      }
+      updateCart();
+      closeModal();
+    }
 
-        function handleBarcodeImage(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+    function updateCart(){
+      const el = document.getElementById('cartItems');
+      if (cart.length === 0){
+        el.innerHTML = `<div style="text-align:center;padding:30px;color:#666">Your cart is empty</div>`;
+        document.getElementById('cartSummary').style.display='none';
+        document.getElementById('cartCount').textContent = '0';
+        return;
+      }
+      el.innerHTML = cart.map((it, i)=> `
+        <div class="cart-item">
+          <div class="ci-left">
+            <div class="ci-name">${esc(it.name)}</div>
+            <div class="ci-meta"><b>${esc(it.alias)}</b> • <b>${esc(it.group)}</b> • ${it.priceType === 'sale' ? 'Sale' : 'Wholesale'} • ${fmt(it.price)}</div>
+          </div>
+          <div class="ci-right">
+            <div class="qty-controls">
+              <button class="qty-btn" onclick="changeCartQty(${i}, -1)">-</button>
+              <div style="min-width:30px;text-align:center;font-weight:800">${it.quantity}</div>
+              <button class="qty-btn" onclick="changeCartQty(${i}, 1)">+</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div style="font-weight:900">${fmt(it.total)}</div>
+              <button class="remove-btn" title="Remove" onclick="removeCartItem(${i})">✕</button>
+            </div>
+          </div>
+        </div>`).join('');
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const img = new Image();
-                img.onload = function() {
-                    Quagga.decodeSingle({
-                        src: event.target.result,
-                        numOfWorkers: 0,
-                        inputStream: { size: 800 },
-                        decoder: {
-                            readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'code_39_reader', 'upc_reader', 'upc_e_reader']
-                        },
-                    }, function(result) {
-                        if (result && result.codeResult) {
-                            const barcode = result.codeResult.code;
-                            searchAndDisplay(barcode);
-                            playBeep(1200, 0.1);
-                        } else {
-                            showNotification('❌ No barcode detected in image', 'error');
-                            playBeep(200, 0.2);
-                        }
-                    });
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-            e.target.value = '';
-        }
+      const totalLines = cart.length;
+      const totalQty = cart.reduce((s,i)=> s + i.quantity, 0);
+      const totalAmount = cart.reduce((s,i)=> s + i.total, 0);
+      document.getElementById('summaryItems').textContent = totalLines;
+      document.getElementById('summaryQty').textContent = totalQty;
+      document.getElementById('summaryTotal').textContent = fmt(totalAmount);
+      document.getElementById('cartCount').textContent = totalLines;
+      document.getElementById('cartSummary').style.display = 'block';
+    }
 
-        function handleSearchInput(e) {
-            clearTimeout(searchTimeout);
-            const query = e.target.value.trim();
-            selectedIndex = -1;
-            
-            if (query.length === 0) {
-                document.getElementById('dropdown').classList.add('hidden');
-                return;
-            }
+    function changeCartQty(i, delta){
+      cart[i].quantity = Math.max(1, cart[i].quantity + delta);
+      cart[i].total = cart[i].quantity * cart[i].price;
+      updateCart();
+    }
+    function removeCartItem(i){
+      if (!confirm('Remove this item?')) return;
+      cart.splice(i,1);
+      updateCart();
+    }
+    function clearCart(){ if (!confirm('Clear cart?')) return; cart=[]; updateCart(); }
 
-            searchTimeout = setTimeout(() => {
-                showDropdown(query);
-            }, 200);
-        }
+    /* ========== invoice generation ========== */
+    function getTodayKey(){
+      const d = new Date();
+      const y = d.getFullYear().toString().padStart(4,'0');
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}${m}${day}`;
+    }
+    function nextInvoiceNumber(){
+      const key = 'libas-invoice-' + getTodayKey();
+      let val = localStorage.getItem(key);
+      val = val ? parseInt(val,10) : 0;
+      val++;
+      localStorage.setItem(key, String(val));
+      const inv = `INV-${getTodayKey()}-${String(val).padStart(3,'0')}`;
+      return inv;
+    }
 
-        function handleBarcodeKeydown(e) {
-            const dropdown = document.getElementById('dropdown');
-            const items = dropdown.querySelectorAll('.dropdown-item');
-            
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (!dropdown.classList.contains('hidden') && items.length > 0) {
-                    selectedIndex = (selectedIndex + 1) % items.length;
-                    updateSelectedItem(items);
-                    playBeep(500, 0.03);
-                }
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (!dropdown.classList.contains('hidden') && items.length > 0) {
-                    selectedIndex = selectedIndex <= 0 ? items.length - 1 : selectedIndex - 1;
-                    updateSelectedItem(items);
-                    playBeep(500, 0.03);
-                }
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (selectedIndex >= 0 && selectedIndex < items.length) {
-                    const alias = items[selectedIndex].dataset.alias;
-                    searchAndDisplay(alias);
-                    e.target.value = '';
-                    dropdown.classList.add('hidden');
-                    selectedIndex = -1;
-                } else {
-                    const query = e.target.value.trim();
-                    if (query) {
-                        searchAndDisplay(query);
-                        e.target.value = '';
-                        dropdown.classList.add('hidden');
-                    }
-                }
-            } else if (e.key === 'Escape') {
-                dropdown.classList.add('hidden');
-                selectedIndex = -1;
-            }
-        }
+    /* ========== print quotation ========== */
+    function printQuotation(){
+      if (cart.length === 0){ alert('Cart empty'); return; }
+      const size = document.getElementById('printSize').value;
+      const width = size === '3inch' ? '80mm' : size === '4inch' ? '105mm' : size === 'a6' ? '105mm' : '210mm';
+      const invNo = nextInvoiceNumber();
+      const dateTime = new Date().toLocaleString();
+      const totalQty = cart.reduce((s,i)=> s + i.quantity, 0);
+      const totalAmount = cart.reduce((s,i)=> s + i.total, 0);
 
-        function updateSelectedItem(items) {
-            items.forEach((item, idx) => {
-                if (idx === selectedIndex) {
-                    item.classList.add('selected');
-                    item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                } else {
-                    item.classList.remove('selected');
-                }
-            });
-        }
+      // build table rows
+      const rows = cart.map((it, idx)=>`
+        <tr>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center">${idx+1}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee">${esc(it.name)}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee;font-weight:900">${esc(it.alias)}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee;font-weight:900">${esc(it.group)}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center">${it.quantity}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">${fmt(it.price)}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">${fmt(it.total)}</td>
+        </tr>`).join('');
 
-        function showDropdown(query) {
-            const dropdown = document.getElementById('dropdown');
-            const matches = [];
-            
-            const normalizedQuery = query.toLowerCase().replace(/^0+/, '');
-            
-            for (let alias in excelData) {
-                const item = excelData[alias];
-                const normalizedAlias = alias.replace(/^0+/, '').toLowerCase();
-                const normalizedName = item.name.toLowerCase();
-                
-                if (normalizedAlias.includes(normalizedQuery) || 
-                    alias.toLowerCase().includes(query.toLowerCase()) ||
-                    normalizedName.includes(normalizedQuery)) {
-                    matches.push(item);
-                }
-            }
+      const headerHtml = `
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div style="width:72px;height:72px;border-radius:10px;overflow:hidden;border:2px solid rgba(212,175,55,0.2)">
+            <img src="logo.png" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">
+          </div>
+          <div>
+            <div style="font-size:20px;font-weight:900;color:${'#0b3d91'}">LIBAS Quotation</div>
+            <div style="margin-top:4px;font-weight:700;color:${'#d4af37'}">Mobile: 7588756668</div>
+            <div style="font-size:12px;margin-top:6px;color:#333">GN Azad College Road, Vasant Nagar, Pusad-445204 (MH)</div>
+          </div>
+        </div>`;
 
-            if (matches.length === 0) {
-                dropdown.classList.add('hidden');
-                return;
-            }
+      const html = `
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Quotation - ${invNo}</title>
+          <style>
+            @page{size:${width} auto;margin:8mm}
+            body{font-family: Arial, Helvetica, sans-serif; color:#111; padding:8px}
+            .card{border-radius:8px;padding:10px;border:3px solid ${'#d4af37'};box-shadow:0 8px 30px rgba(0,0,0,0.12)}
+            .topbar{background:${'#0b3d91'};color:#fff;padding:8px;border-radius:6px;font-weight:800}
+            table{width:100%;border-collapse:collapse;margin-top:8px}
+            th{background:linear-gradient(90deg, ${'#0b3d91'}, ${'#174ea6'});color:#fff;padding:8px;font-weight:800}
+            td{font-size:13px}
+            .summary{margin-top:10px;padding:8px;border-radius:8px;background:linear-gradient(90deg,#fff8e1,#fff);border:2px solid ${'#d4af37'}}
+            .footer{margin-top:12px;text-align:center;font-weight:800;color:#333}
+            .no-return{margin-top:8px;color:#b71c1c;font-weight:900}
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="topbar">LIBAS Quotation — Invoice: ${invNo} &nbsp;&nbsp; Date: ${esc(dateTime)}</div>
+            <div style="margin-top:8px">${headerHtml}</div>
+            <div style="margin-top:6px;font-size:13px"> <strong>Printed:</strong> ${esc(dateTime)}</div>
 
-            matches.sort((a, b) => {
-                const aAliasMatch = a.alias.replace(/^0+/, '').toLowerCase().indexOf(normalizedQuery);
-                const bAliasMatch = b.alias.replace(/^0+/, '').toLowerCase().indexOf(normalizedQuery);
-                return aAliasMatch - bAliasMatch;
-            });
+            <table aria-hidden="true" style="margin-top:10px">
+              <thead>
+                <tr>
+                  <th style="width:5%">S.No</th>
+                  <th style="width:32%">Name</th>
+                  <th style="width:12%">Alias</th>
+                  <th style="width:12%">Group</th>
+                  <th style="width:8%">Qty</th>
+                  <th style="width:15%">Price</th>
+                  <th style="width:16%">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows}
+              </tbody>
+            </table>
 
-            dropdown.innerHTML = matches.slice(0, 10).map((item, idx) => `
-                <div class="dropdown-item ${idx === 0 ? 'selected' : ''}" data-alias="${item.alias}">
-                    <div class="dropdown-alias">${item.alias}</div>
-                    <div class="dropdown-name">${item.name}</div>
-                </div>
-            `).join('');
+            <div class="summary">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div><strong>Total Quantity:</strong> ${totalQty}</div>
+                <div style="font-size:18px;font-weight:900">TOTAL: ${fmt(totalAmount)}</div>
+              </div>
+            </div>
 
-            selectedIndex = 0;
+            <div class="footer">
+              Thank you for shopping with LIBAS 💙
+              <div class="no-return">NO RETURN AND NO EXCHANGE</div>
+            </div>
+          </div>
+        </body>
+      </html>`;
 
-            dropdown.querySelectorAll('.dropdown-item').forEach(item => {
-                item.addEventListener('click', function() {
-                    const alias = this.dataset.alias;
-                    searchAndDisplay(alias);
-                    document.getElementById('barcodeInput').value = '';
-                    dropdown.classList.add('hidden');
-                    selectedIndex = -1;
-                });
-            });
-
-            dropdown.classList.remove('hidden');
-        }
-
-        function searchAndDisplay(query) {
-            const normalizedQuery = query.replace(/^0+/, '');
-            let item = excelData[query];
-            
-            if (!item) {
-                for (let alias in excelData) {
-                    if (alias.replace(/^0+/, '') === normalizedQuery) {
-                        item = excelData[alias];
-                        break;
-                    }
-                }
-            }
-            
-            if (!item) {
-                showNotification('❌ Item not found: ' + query, 'error');
-                playBeep(200, 0.2);
-                return;
-            }
-
-            currentProduct = item;
-            displayProduct(item);
-            playBeep(1200, 0.1);
-            
-            if (navigator.vibrate) {
-                navigator.vibrate([50, 30, 50]);
-            }
-        }
-
-        function displayProduct(item) {
-            const resultCard = document.getElementById('resultCard');
-            
-            resultCard.innerHTML = `
-                <div class="product-card">
-                    <div class="product-header">
-                        <div class="product-name">${item.name}</div>
-                        <div class="product-alias">Code: ${item.alias}</div>
-                    </div>
-                    
-                    <div class="price-grid">
-                        <div class="price-card mrp">
-                            <div class="price-label">MRP</div>
-                            <div class="price-value">₹${item.mrp}</div>
-                        </div>
-                        <div class="price-card sale" onclick="openAddToCartModal('${item.alias}', 'sale')">
-                            <div class="price-label">Sale Price</div>
-                            <div class="price-value">₹${item.salePrice}</div>
-                            <div class="add-text">Click to add to cart</div>
-                        </div>
-                        <div class="price-card wholesale" onclick="openAddToCartModal('${item.alias}', 'wholesale')">
-                            <div class="price-label">Wholesale</div>
-                            <div class="price-value">₹${item.wholesale}</div>
-                            <div class="add-text">Click to add to cart</div>
-                        </div>
-                    </div>
-                    
-                    <div class="info-grid">
-                        <div class="info-card">
-                            <div class="info-label">Stock</div>
-                            <div class="info-value">${item.stock}</div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-label">Group</div>
-                            <div class="info-value">${item.group}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            resultCard.classList.remove('hidden');
-        }
-
-        function toggleScanner() {
-            if (cameraActive) {
-                stopCameraScanner();
-            } else {
-                startCameraScanner();
-            }
-        }
-
-        function startCameraScanner() {
-            if (cameraActive) return;
-
-            playBeep(600, 0.05);
-            html5QrCode = new Html5Qrcode("reader");
-            const readerElement = document.getElementById('reader');
-            const scanBtn = document.getElementById('scanQRBtn');
-            
-            readerElement.classList.remove('hidden');
-            scanBtn.classList.add('active');
-            scanBtn.textContent = '⏹️';
-
-            html5QrCode.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 200, height: 200 } },
-                (decodedText) => {
-                    searchAndDisplay(decodedText);
-                },
-                () => {}
-            ).then(() => {
-                cameraActive = true;
-            }).catch(err => {
-                showNotification('❌ Camera error: ' + err, 'error');
-                playBeep(200, 0.2);
-                stopCameraScanner();
-            });
-        }
-
-        function stopCameraScanner() {
-            if (html5QrCode && cameraActive) {
-                playBeep(400, 0.05);
-                html5QrCode.stop().then(() => {
-                    document.getElementById('reader').classList.add('hidden');
-                    const scanBtn = document.getElementById('scanQRBtn');
-                    scanBtn.classList.remove('active');
-                    scanBtn.textContent = '📷';
-                    cameraActive = false;
-                }).catch(err => {
-                    console.error('Error stopping camera:', err);
-                });
-            }
-        }
-
-        function openAddToCartModal(alias, priceType) {
-            const item = excelData[alias];
-            if (!item) return;
-
-            modalItem = item;
-            modalPriceType = priceType;
-            modalQty = 1;
-
-            const price = priceType === 'sale' ? item.salePrice : item.wholesale;
-            const priceLabel = priceType === 'sale' ? 'Sale Price' : 'Wholesale';
-
-            document.getElementById('modalProduct').innerHTML = `
-                <strong>${item.name}</strong><br>
-                <span style="opacity: 0.8;">${priceLabel}: ₹${price}</span>
-            `;
-            document.getElementById('modalQty').textContent = modalQty;
-            document.getElementById('qtyModal').classList.remove('hidden');
-            playBeep(800, 0.05);
-        }
-
-        function closeModal() {
-            document.getElementById('qtyModal').classList.add('hidden');
-            modalItem = null;
-            modalPriceType = '';
-            modalQty = 1;
-            playBeep(400, 0.05);
-        }
-
-        function changeModalQty(delta) {
-            modalQty = Math.max(1, modalQty + delta);
-            document.getElementById('modalQty').textContent = modalQty;
-            playBeep(500, 0.03);
-        }
-
-        function confirmAddToCart() {
-            if (!modalItem) return;
-
-            const price = modalPriceType === 'sale' ? parseFloat(modalItem.salePrice) : parseFloat(modalItem.wholesale);
-            
-            const existingIndex = cart.findIndex(c => c.alias === modalItem.alias && c.priceType === modalPriceType);
-            
-            if (existingIndex >= 0) {
-                cart[existingIndex].quantity += modalQty;
-                cart[existingIndex].total = cart[existingIndex].quantity * cart[existingIndex].price;
-            } else {
-                cart.push({
-                    alias: modalItem.alias,
-                    name: modalItem.name,
-                    priceType: modalPriceType,
-                    price: price,
-                    quantity: modalQty,
-                    total: price * modalQty
-                });
-            }
-
-            updateCartDisplay();
-            closeModal();
-            playBeep(1200, 0.1);
-            showNotification('✅ Added to cart successfully!', 'success');
-        }
-
-        function updateCartDisplay() {
-            const cartItems = document.getElementById('cartItems');
-            const cartCount = document.getElementById('cartCount');
-            const cartSummary = document.getElementById('cartSummary');
-            const printButtons = document.getElementById('printButtons');
-
-            if (cart.length === 0) {
-                cartItems.innerHTML = `
-                    <div style="text-align: center; opacity: 0.6; padding: 40px 20px;">
-                        <div style="font-size: 48px; margin-bottom: 10px;">🛍️</div>
-                        <div>Your cart is empty</div>
-                    </div>
-                `;
-                cartCount.textContent = '0';
-                cartSummary.style.display = 'none';
-                printButtons.style.display = 'none';
-                return;
-            }
-
-            cartItems.innerHTML = cart.map((item, index) => `
-                <div class="cart-item">
-                    <div class="cart-item-header">
-                        <div>
-                            <div class="cart-item-name">${item.name}</div>
-                            <div class="cart-item-alias">${item.alias} • ${item.priceType === 'sale' ? 'Sale' : 'Wholesale'}</div>
-                        </div>
-                        <button class="remove-btn" onclick="removeFromCart(${index})">×</button>
-                    </div>
-                    <div class="cart-item-details">
-                        <div class="quantity-control">
-                            <button class="qty-btn" onclick="changeCartQty(${index}, -1)">-</button>
-                            <div class="qty-value">${item.quantity}</div>
-                            <button class="qty-btn" onclick="changeCartQty(${index}, 1)">+</button>
-                        </div>
-                        <div class="cart-item-price">₹${item.total.toFixed(2)}</div>
-                    </div>
-                </div>
-            `).join('');
-
-            const totalItems = cart.length;
-            const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
-            const totalAmount = cart.reduce((sum, item) => sum + item.total, 0);
-
-            cartCount.textContent = totalItems;
-            document.getElementById('summaryItems').textContent = totalItems;
-            document.getElementById('summaryQty').textContent = totalQty;
-            document.getElementById('summaryTotal').textContent = '₹' + totalAmount.toFixed(2);
-            
-            cartSummary.style.display = 'block';
-            printButtons.style.display = 'grid';
-        }
-
-        function changeCartQty(index, delta) {
-            cart[index].quantity = Math.max(1, cart[index].quantity + delta);
-            cart[index].total = cart[index].quantity * cart[index].price;
-            updateCartDisplay();
-            playBeep(500, 0.03);
-        }
-
-        function removeFromCart(index) {
-            cart.splice(index, 1);
-            updateCartDisplay();
-            playBeep(400, 0.05);
-            showNotification('🗑️ Item removed from cart', 'error');
-        }
-
-        function clearCart() {
-            if (cart.length === 0) return;
-            
-            if (confirm('Are you sure you want to clear the cart?')) {
-                cart = [];
-                updateCartDisplay();
-                playBeep(400, 0.1);
-                showNotification('🗑️ Cart cleared', 'error');
-            }
-        }
-
-        function printQuotation(size) {
-            if (cart.length === 0) {
-                showNotification('❌ Cart is empty!', 'error');
-                return;
-            }
-
-            const width = size === '3inch' ? '80mm' : '105mm';
-            const totalAmount = cart.reduce((sum, item) => sum + item.total, 0);
-            const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
-
-            const printContent = `
-                <html>
-                <head>
-                    <style>
-                        @page { size: ${width} auto; margin: 5mm; }
-                        body { font-family: 'Courier New', monospace; font-size: 12px; margin: 0; padding: 10px; }
-                        .header { text-align: center; margin-bottom: 15px; border-bottom: 2px dashed #000; padding-bottom: 10px; }
-                        .title { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-                        .subtitle { font-size: 11px; margin-bottom: 3px; }
-                        .date { font-size: 10px; margin-top: 5px; }
-                        .item { margin-bottom: 12px; border-bottom: 1px dashed #ccc; padding-bottom: 8px; }
-                        .item-name { font-weight: bold; font-size: 13px; margin-bottom: 3px; }
-                        .item-details { font-size: 11px; display: flex; justify-content: space-between; margin-bottom: 2px; }
-                        .summary { margin-top: 15px; padding-top: 10px; border-top: 2px solid #000; }
-                        .summary-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
-                        .total { font-weight: bold; font-size: 14px; margin-top: 8px; padding-top: 8px; border-top: 2px dashed #000; }
-                        .footer { text-align: center; margin-top: 15px; font-size: 11px; border-top: 2px dashed #000; padding-top: 10px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <div class="title">LIBAS</div>
-                        <div class="subtitle">Jo baat libas se ho wo lafzon me kahan</div>
-                        <div class="date">${new Date().toLocaleString()}</div>
-                    </div>
-                    
-                    ${cart.map((item, i) => `
-                        <div class="item">
-                            <div class="item-name">${i + 1}. ${item.name}</div>
-                            <div class="item-details">
-                                <span>Code: ${item.alias}</span>
-                                <span>${item.priceType === 'sale' ? 'Sale' : 'Wholesale'}</span>
-                            </div>
-                            <div class="item-details">
-                                <span>Qty: ${item.quantity} × ₹${item.price.toFixed(2)}</span>
-                                <span><strong>₹${item.total.toFixed(2)}</strong></span>
-                            </div>
-                        </div>
-                    `).join('')}
-                    
-                    <div class="summary">
-                        <div class="summary-row">
-                            <span>Total Items:</span>
-                            <span>${cart.length}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span>Total Quantity:</span>
-                            <span>${totalQty}</span>
-                        </div>
-                        <div class="summary-row total">
-                            <span>TOTAL AMOUNT:</span>
-                            <span>₹${totalAmount.toFixed(2)}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="footer">
-                        Thank you for your business!<br>
-                        Visit again 🙏
-                    </div>
-                </body>
-                </html>
-            `;
-
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(printContent);
-            printWindow.document.close();
-            
-            setTimeout(() => {
-                printWindow.print();
-            }, 250);
-            
-            playBeep(1000, 0.1);
-            showNotification('🖨️ Printing quotation...', 'success');
-        }
-
-        function showNotification(message, type) {
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                z-index: 10000;
-                min-width: 280px;
-                padding: 15px 20px;
-                border-radius: 12px;
-                font-size: 14px;
-                font-weight: 600;
-                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-                animation: slideIn 0.3s ease;
-                backdrop-filter: blur(10px);
-            `;
-            
-            if (type === 'error') {
-                notification.style.background = 'rgba(245, 87, 108, 0.95)';
-                notification.style.color = '#fff';
-            } else {
-                notification.style.background = 'rgba(67, 233, 123, 0.95)';
-                notification.style.color = '#fff';
-            }
-            
-            notification.textContent = message;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.style.opacity = '0';
-                notification.style.transition = 'all 0.3s ease';
-                setTimeout(() => notification.remove(), 300);
-            }, 3000);
-        }
-    </script>
+      const w = window.open('','_blank');
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      // small delay before print for some browsers
+      setTimeout(()=> w.print(), 600);
+    }
+  </script>
 </body>
 </html>
