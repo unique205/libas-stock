@@ -8,8 +8,7 @@
   <!-- libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
+ 
   <link href="manifest.json" rel="manifest">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
@@ -154,7 +153,7 @@
           <div class="summ-row"><div>Total Qty</div><div id="summaryQty">0</div></div>
           <div class="summ-row" style="font-size:18px"><div>Total Amount</div><div id="summaryTotal">₹0.00</div></div>
 
-          <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+          <div style="margin-top:10px;display:flex;gap:8px;align-items:cente    r">
             <label for="printSize" style="font-weight:700;margin-right:6px;color:#333">Print size:</label>
             <select id="printSize" class="select">
               <option value="3inch">3" (80mm)</option>
@@ -196,8 +195,26 @@
   <script>
     /* ================== CONFIG ================== */
     // Replace with your raw GitHub Excel file raw URL if different
-    const EXCEL_FILE_URL = 'https://raw.githubusercontent.com/unique205/libas-stock/main/data.xlsx';
+    let API_URL = null;
 
+async function boot() {
+  // 1) fetch config.json (never cache)
+  const res = await fetch('./config.json', { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to load config.json');
+  const cfg = await res.json();
+  API_URL = String(cfg.api || '').trim();
+  if (!API_URL) throw new Error('Missing "api" in config.json');
+
+  // 2) now load your data from the live API
+  await loadFromAPI();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  boot().catch(err => {
+    console.error(err);
+    alert('Startup error: ' + err.message);
+  });
+});
     /* ================== STATE ================== */
     let excelData = {};
     let html5QrCode = null;
@@ -224,70 +241,48 @@
 
     /* ================== INIT ================== */
     window.addEventListener('DOMContentLoaded', ()=>{
-      loadExcel();
+      loadFromAPI();
       setupHandlers();
       const logo = document.getElementById('logoImg');
       logo.addEventListener('error', ()=> { document.getElementById('logoText').style.display='flex'; });
       // register SW if available
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js')
+        navigator.serviceWorker.register('./service-worker.js')
           .then(reg => console.log('ServiceWorker registered', reg))
           .catch(err => console.warn('SW registration failed', err));
       }
     });
 
-    /* ================== EXCEL LOADING ================== */
-    async function loadExcel(){
-      try{
-        const r = await fetch(EXCEL_FILE_URL);
-        if (!r.ok) throw new Error('Failed to fetch Excel - check URL & repo visibility');
-        const ab = await r.arrayBuffer();
-        const wb = XLSX.read(ab, {type:'array'});
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(sheet, { header:1 });
-        const hr = detectHeaderRow(data);
-        if (hr === -1) throw new Error('Header row not found. Ensure headers like Name, Alias, MRP, Sale, Wholesale, Stock, Group exist.');
-        excelData = parseSheet(data, hr);
-      }catch(e){
-        console.error(e);
-        alert('Error loading Excel: ' + e.message);
-      }
-    }
+/* ================== API LOADING (LIVE) ================== */
+async function loadFromAPI(){
+  try{
+    const r = await fetch(API_URL, { cache: 'no-store' });
+    if (!r.ok) throw new Error('API error ' + r.status);
+    const rows = await r.json();
 
-    function detectHeaderRow(data){
-      const keywords = ['name','alias','mrp','sale','price','wholesale','stock','group'];
-      for (let i=0;i<Math.min(10,data.length);i++){
-        const row = data[i];
-        if (!row || row.length < 3) continue;
-        const text = row.join('|').toLowerCase();
-        const count = keywords.filter(k=> text.includes(k)).length;
-        if (count >= 3) return i;
-      }
-      return -1;
-    }
+    // transform API rows -> excelData format used by the UI
+    const out = {};
+    rows.forEach(row => {
+      const alias = String(row.ItemAlias || '').trim();
+      if (!alias) return;
+      out[alias] = {
+        name: row.ItemName || '-',
+        alias: alias,
+        group: row.GroupName || '-',
+        mrp: Number(row.Item_MRP) || 0,
+        salePrice: Number(row.Item_Sale_Price) || 0,
+        // if you prefer, you can map SelfVal price somewhere else; for now use as “wholesale”
+        wholesale: Number(row.Item_SelfVal_Price) || Number(row.Item_Sale_Price) || 0,
+        stock: row.Stock ?? '-'
+      };
+    });
 
-    function parseSheet(data, headerRow){
-      const out = {};
-      const headers = data[headerRow].map(h=>String(h||'').trim().toLowerCase());
-      const getIdx = key => headers.findIndex(h=> h.includes(key));
-      const nameI = getIdx('name'), aliasI = getIdx('alias'), mrpI = getIdx('mrp'), saleI = getIdx('sale'), wholesaleI = getIdx('wholesale'), stockI = getIdx('stock'), groupI = getIdx('group');
-      for (let r=headerRow+1;r<data.length;r++){
-        const row = data[r];
-        if (!row || row.length === 0) continue;
-        const alias = aliasI>=0 && row[aliasI] ? String(row[aliasI]).trim() : '';
-        if (!alias) continue;
-        out[alias] = {
-          name: nameI>=0 ? (row[nameI] || '-') : '-',
-          alias: alias,
-          mrp: safeNum(mrpI>=0 ? row[mrpI] : 0),
-          salePrice: safeNum(saleI>=0 ? row[saleI] : 0),
-          wholesale: safeNum(wholesaleI>=0 ? row[wholesaleI] : 0),
-          stock: stockI>=0 ? (row[stockI] || '-') : '-',
-          group: groupI>=0 ? (row[groupI] || '-') : '-'
-        };
-      }
-      return out;
-    }
+    excelData = out;
+  }catch(e){
+    console.error(e);
+    alert('Error loading API: ' + e.message);
+  }
+}
 
     /* ================== UI HANDLERS ================== */
     function setupHandlers(){
